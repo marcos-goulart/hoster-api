@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import hotelRoutes from "./routes/hotelRoutes";
+import userRoutes from "./routes/userRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
 import {
   authMiddleware,
   AuthenticatedRequest,
@@ -21,6 +23,8 @@ app.get("/", (req, res) => {
     endpoints: {
       health: "/api/health",
       hotels: "/api/hotels",
+      user: "/api/user/* (Protected)",
+      bookings: "/api/bookings/* (Protected)",
       me: "/api/auth/me (Protected)",
     },
   });
@@ -34,6 +38,11 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// Módulos da API
+app.use("/api/hotels", hotelRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 // Módulo de Hotéis (Rotas Públicas de Leitura)
 app.use("/api/hotels", hotelRoutes);

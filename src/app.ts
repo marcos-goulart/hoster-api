@@ -3,11 +3,13 @@ import cors from "cors";
 import hotelRoutes from "./routes/hotelRoutes";
 import userRoutes from "./routes/userRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
+import { SuggestionController } from "./controllers/suggestionController";
 import {
   authMiddleware,
   AuthenticatedRequest,
 } from "./middlewares/authMiddleware";
 
+const suggestionController = new SuggestionController();
 const app = express();
 
 // Middlewares globais
@@ -46,6 +48,11 @@ app.use("/api/bookings", bookingRoutes);
 
 // Módulo de Hotéis (Rotas Públicas de Leitura)
 app.use("/api/hotels", hotelRoutes);
+
+// Rota de sugestões de pesquisa
+app.get("/api/searchSuggestions", (req, res) =>
+  suggestionController.getSuggestions(req, res),
+);
 
 // Rota de Teste Protegida (Firebase JWT)
 app.get("/api/auth/me", authMiddleware, (req: AuthenticatedRequest, res) => {

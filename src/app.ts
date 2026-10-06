@@ -12,8 +12,41 @@ import {
 const suggestionController = new SuggestionController();
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173", // Vite Dev Server
+  "http://localhost:4173", // Vite Preview
+  "http://127.0.0.1:8788", // Wrangler Pages Local
+  "http://localhost:8788", // Wrangler Pages Local
+];
+
 // Middlewares globais
-app.use(cors());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Permite requisições sem origem (ex: ferramentas mobile/Postman)
+      if (!origin) return callback(null, true);
+
+      const isLocalhost =
+        origin.startsWith("http://localhost") ||
+        origin.startsWith("http://127.0.0.1");
+
+      if (isLocalhost) {
+        return callback(null, true);
+      }
+
+      // Adicione aqui seu domínio final do Cloudflare Pages quando fizer deploy
+      const allowedDomains = ["https://meu-app.pages.dev"];
+      if (allowedDomains.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Bloqueado pelo CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 
 // Rota Raiz (Boas-vindas / Documentação rápida)

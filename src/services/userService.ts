@@ -31,7 +31,19 @@ export class UserService {
         },
       },
     });
-    return favorites.map((fav) => fav.hotel);
+
+    return favorites.map((fav) => {
+      const hotel = fav.hotel;
+      const lowestPrice =
+        hotel.rooms && hotel.rooms.length > 0
+          ? Math.min(...hotel.rooms.map((r) => r.pricePerNight))
+          : 0;
+
+      return {
+        ...hotel,
+        price: lowestPrice,
+      };
+    });
   }
 
   async addFavorite(userId: string, hotelId: string) {

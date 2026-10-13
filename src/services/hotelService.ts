@@ -9,10 +9,29 @@ export interface HotelSearchQuery {
 }
 
 export class HotelService {
+  /**
+   * Método auxiliar para calcular e anexar o menor preço de quarto (diária)
+   * diretamente na propriedade `price` de cada hotel.
+   */
+  private formatHotelList(hotels: any[]) {
+    return hotels.map((hotel) => {
+      const lowestRoomPrice =
+        hotel.rooms && hotel.rooms.length > 0
+          ? Math.min(...hotel.rooms.map((r: any) => r.pricePerNight))
+          : 0;
+
+      return {
+        ...hotel,
+        price: lowestRoomPrice,
+      };
+    });
+  }
+
   async listHotels(filters: HotelSearchQuery) {
     const { city, minPrice, maxPrice, guests, amenities } = filters;
     const searchTerm = city?.trim().toLowerCase() || "";
 
+    // CASO 1: Busca geral (Sem termo de cidade)
     if (!searchTerm) {
       const whereClause: any = {};
       this.applyFilters(whereClause, { minPrice, maxPrice, guests, amenities });
@@ -28,7 +47,11 @@ export class HotelService {
         orderBy: [{ ratingScore: "desc" }],
       });
 
-      return { hotels, searchScope: "all", searchTerm: "" };
+      return {
+        hotels: this.formatHotelList(hotels),
+        searchScope: "all",
+        searchTerm: "",
+      };
     }
 
     // PASSO 1: Procura se a cidade/termo pesquisado já existe diretamente no banco
@@ -42,17 +65,14 @@ export class HotelService {
       select: { state: true },
     });
 
-    // Se a cidade existe no banco (ex: Búzios -> RJ), usa a UF dela.
-    // Se não existe, busca por qualquer hotel do banco para pegar o estado padrão ou aplicar fallback.
     const targetState = directMatch?.state || null;
 
-    // PASSO 2: Puxa TODOS os resultados do estado no banco
+    // PASSO 2: Puxa os resultados do estado no banco
     const whereClause: any = {};
 
     if (targetState) {
       whereClause.state = { equals: targetState, mode: "insensitive" };
     } else {
-      // Se a cidade não foi achada no banco (ex: Magé), puxa todos os hotéis do estado RJ como padrão
       whereClause.state = { equals: "RJ", mode: "insensitive" };
     }
 
@@ -69,7 +89,7 @@ export class HotelService {
       orderBy: [{ ratingScore: "desc" }],
     });
 
-    // PASSO 3: Ordena colocando a cidade pesquisada (Búzios) no topo
+    // PASSO 3: Ordena colocando a cidade pesquisada no topo
     if (hotels.length > 0) {
       hotels.sort((a, b) => {
         const aIsCity = a.city.toLowerCase().includes(searchTerm);
@@ -80,10 +100,14 @@ export class HotelService {
         return (b.ratingScore ?? 0) - (a.ratingScore ?? 0);
       });
 
-      return { hotels, searchScope: "state_results", searchTerm: city || "" };
+      return {
+        hotels: this.formatHotelList(hotels),
+        searchScope: "state_results",
+        searchTerm: city || "",
+      };
     }
 
-    // Fallback de segurança se a tabela estiver vazia
+    // PASSO 4: Fallback de segurança se não houver resultados no estado
     hotels = await prisma.hotel.findMany({
       take: 6,
       include: {
@@ -95,7 +119,11 @@ export class HotelService {
       orderBy: [{ ratingScore: "desc" }],
     });
 
-    return { hotels, searchScope: "fallback", searchTerm: city || "" };
+    return {
+      hotels: this.formatHotelList(hotels),
+      searchScope: "fallback",
+      searchTerm: city || "",
+    };
   }
 
   private applyFilters(
@@ -136,12 +164,18 @@ export class HotelService {
   }
 
   async getHotelById(id: string) {
-    return await prisma.hotel.findUnique({
+    const hotel = await prisma.hotel.findUnique({
       where: { id },
       include: {
         rooms: { where: { isAvailable: true } },
         reviews: { orderBy: { createdAt: "desc" } },
       },
     });
+
+    if (!hotel) return null;
+
+    // Aplica a formatação do menor preço também na consulta por ID
+    const [formattedHotel] = this.formatHotelList([hotel]);
+    return formattedHotel;
   }
 }

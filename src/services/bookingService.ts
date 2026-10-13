@@ -85,13 +85,22 @@ export class BookingService {
   }
 
   async getUserBookings(userId: string) {
-    return await prisma.booking.findMany({
+    const bookings = await prisma.booking.findMany({
       where: { userId },
       include: {
-        hotel: true,
-        room: true,
+        room: {
+          include: {
+            hotel: true, // Inclui o hotel associado ao quarto reservado
+          },
+        },
       },
       orderBy: { checkIn: "desc" },
     });
+
+    // Mapeia para entregar o objeto no formato esperado pelo frontend
+    return bookings.map((booking) => ({
+      ...booking,
+      hotel: booking.room.hotel,
+    }));
   }
 }

@@ -1,3 +1,4 @@
+// src/controllers/hotelController.ts
 import { Request, Response } from "express";
 import { HotelService } from "../services/hotelService";
 
@@ -14,7 +15,7 @@ export class HotelController {
           : (amenities as string).split(",")
         : undefined;
 
-      const hotels = await hotelService.listHotels({
+      const result = await hotelService.listHotels({
         city: city as string,
         minPrice: minPrice ? Number(minPrice) : undefined,
         maxPrice: maxPrice ? Number(maxPrice) : undefined,
@@ -24,8 +25,10 @@ export class HotelController {
 
       res.status(200).json({
         success: true,
-        count: hotels.length,
-        data: hotels,
+        count: result.hotels.length,
+        searchScope: result.searchScope,
+        searchTerm: result.searchTerm,
+        data: result.hotels,
       });
     } catch (error) {
       console.error("❌ Erro ao buscar hotéis:", error);
@@ -39,8 +42,7 @@ export class HotelController {
   async getHotelById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const hotelId = String(id);
-      const hotel = await hotelService.getHotelById(hotelId);
+      const hotel = await hotelService.getHotelById(String(id));
 
       if (!hotel) {
         res.status(404).json({

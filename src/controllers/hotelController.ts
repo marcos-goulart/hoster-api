@@ -1,5 +1,6 @@
 // src/controllers/hotelController.ts
 import { Request, Response } from "express";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { HotelService } from "../services/hotelService";
 
 const hotelService = new HotelService();
@@ -61,6 +62,44 @@ export class HotelController {
       res.status(500).json({
         success: false,
         error: "Erro interno ao carregar detalhes do hotel.",
+      });
+    }
+  }
+
+  async addQuestion(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id: hotelId } = req.params;
+      const { question } = req.body;
+      const userId = req.user!.uid;
+      const userName =
+        req.user!.name || req.user!.email?.split("@")[0] || "Hóspede";
+      const userAvatar = req.user!.picture || null;
+
+      if (!question || typeof question !== "string" || !question.trim()) {
+        res.status(400).json({
+          success: false,
+          error: "A pergunta deve ser informada e não pode estar vazia.",
+        });
+        return;
+      }
+
+      const newQuestion = await hotelService.createQuestion({
+        hotelId: String(hotelId),
+        userId,
+        userName,
+        userAvatar,
+        question: question.trim(),
+      });
+
+      res.status(201).json({
+        success: true,
+        data: newQuestion,
+      });
+    } catch (error) {
+      console.error("❌ Erro ao registrar pergunta:", error);
+      res.status(500).json({
+        success: false,
+        error: "Erro interno ao enviar sua dúvida sobre o hotel",
       });
     }
   }

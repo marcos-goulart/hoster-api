@@ -20,6 +20,7 @@ model User {
 
   bookings  Booking[]
   favorites Favorite[]
+  questions HotelQuestion[] // Relacionamento com as perguntas enviadas
 
   @@map("users")
 }
@@ -29,6 +30,7 @@ model Hotel {
   id          String   @id @default(uuid())
   name        String
   description String?  @db.Text
+  about       String?  @db.Text // Campo opcional: "Mais informações sobre o hotel"
   address     String
   city        String
   state       String
@@ -43,6 +45,7 @@ model Hotel {
   rooms     Room[]
   reviews   Review[]
   favorites Favorite[]
+  questions HotelQuestion[] // Relacionamento com as perguntas
 
   @@map("hotels")
 }
@@ -128,4 +131,22 @@ model Favorite {
 
   @@unique([userId, hotelId])
   @@map("favorites")
+}
+
+// 7. Perguntas e Respostas do Hotel (Dúvidas Diretas)
+model HotelQuestion {
+  id        String   @id @default(uuid())
+  hotelId   String
+  userId    String
+  question  String   @db.Text
+  answer    String?  @db.Text // Resposta do hotel/anfitrião (opcional)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@index([userId])
+  @@map("hotel_questions")
 }

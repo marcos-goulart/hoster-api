@@ -8,6 +8,14 @@ export interface HotelSearchQuery {
   amenities?: string[];
 }
 
+export interface CreateQuestionDTO {
+  hotelId: string;
+  userId: string;
+  userName?: string;
+  userAvatar?: string | null;
+  question: string;
+}
+
 export class HotelService {
   /**
    * Método auxiliar para calcular e anexar o menor preço de quarto (diária)
@@ -168,14 +176,55 @@ export class HotelService {
       where: { id },
       include: {
         rooms: { where: { isAvailable: true } },
-        reviews: { orderBy: { createdAt: "desc" } },
+        reviews: {
+          take: 3, // Limite de até 3 avaliações na página de detalhes
+          orderBy: [{ rating: "desc" }, { createdAt: "desc" }], // As melhores e mais recentes
+        },
+        questions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: {
+              select: { name: true, avatar: true },
+            },
+          },
+        },
       },
     });
 
     if (!hotel) return null;
 
-    // Aplica a formatação do menor preço também na consulta por ID
     const [formattedHotel] = this.formatHotelList([hotel]);
     return formattedHotel;
+  }
+
+  async createQuestion(data: CreateQuestionDTO) {
+    // Atualiza ou cria o usuário mantendo o nome e o avatar sincronizados com o Firebase Auth
+    await prisma.user.upsert({
+      where: { id: data.userId },
+      update: {
+        ...(data.userName ? { name: data.userName } : {}),
+        ...(data.userAvatar ? { avatar: data.userAvatar } : {}),
+      },
+      create: {
+        id: data.userId,
+        firebaseUid: data.userId,
+        name: data.userName || "Hóspede",
+        email: `${data.userId}@guest.com`,
+        avatar: data.userAvatar || null,
+      },
+    });
+
+    return await prisma.hotelQuestion.create({
+      data: {
+        hotelId: data.hotelId,
+        userId: data.userId,
+        question: data.question,
+      },
+      include: {
+        user: {
+          select: { name: true, avatar: true },
+        },
+      },
+    });
   }
 }

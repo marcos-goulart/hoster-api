@@ -5,6 +5,8 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     uid: string;
     email?: string;
+    name?: string;
+    picture?: string;
   };
 }
 
@@ -30,6 +32,8 @@ export async function authMiddleware(
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,
+      name: decodedToken.name,
+      picture: decodedToken.picture,
     };
     next();
   } catch (error) {

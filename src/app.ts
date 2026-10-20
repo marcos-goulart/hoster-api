@@ -1,8 +1,10 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import hotelRoutes from "./routes/hotelRoutes";
 import userRoutes from "./routes/userRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
+import { errorHandler } from "./middlewares/errorHandler";
 import { SuggestionController } from "./controllers/suggestionController";
 import {
   authMiddleware,
@@ -19,11 +21,12 @@ const allowedOrigins = [
   "http://localhost:8788", // Wrangler Pages Local
 ];
 
-// Middlewares globais
+// Middlewares Globais de Segurança
+app.use(helmet());
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite requisições sem origem (ex: ferramentas mobile/Postman)
       if (!origin) return callback(null, true);
 
       const isLocalhost =
@@ -34,7 +37,6 @@ app.use(
         return callback(null, true);
       }
 
-      // Adicione aqui seu domínio final do Cloudflare Pages quando fizer deploy
       const allowedDomains = ["https://meu-app.pages.dev"];
       if (allowedDomains.includes(origin)) {
         return callback(null, true);
@@ -47,9 +49,10 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
 app.use(express.json());
 
-// Rota Raiz (Boas-vindas / Documentação rápida)
+// Rota Raiz & Healthcheck
 app.get("/", (req, res) => {
   res.status(200).json({
     name: "Hoster API",
@@ -65,7 +68,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Rotas da aplicação
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
@@ -74,20 +76,16 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Módulos da API
+// Módulos de Rotas da API
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// Módulo de Hotéis (Rotas Públicas de Leitura)
-app.use("/api/hotels", hotelRoutes);
-
-// Rota de sugestões de pesquisa
+// Rotas Auxiliares e de Autenticação
 app.get("/api/searchSuggestions", (req, res) =>
   suggestionController.getSuggestions(req, res),
 );
 
-// Rota de Teste Protegida (Firebase JWT)
 app.get("/api/auth/me", authMiddleware, (req: AuthenticatedRequest, res) => {
   res.status(200).json({
     success: true,
@@ -95,5 +93,8 @@ app.get("/api/auth/me", authMiddleware, (req: AuthenticatedRequest, res) => {
     user: req.user,
   });
 });
+
+// Middleware Global de Erros (Sempre no final)
+app.use(errorHandler);
 
 export default app;

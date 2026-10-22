@@ -27,4 +27,12 @@ describe("Hotels API Routes (Integration)", () => {
     expect(response.body).toHaveProperty("success", false);
     expect(response.body.error).toBe("Acomodação não encontrada.");
   });
+
+  it("POST /api/hotels/:id/questions - deve exigir autenticação para enviar dúvida", async () => {
+    const response = await request(app)
+      .post("/api/hotels/some-id/questions")
+      .send({ question: "O café da manhã está incluso?" });
+
+    expect(response.status).toBe(401);
+  });
 });

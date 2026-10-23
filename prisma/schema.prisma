@@ -58,6 +58,7 @@ model Room {
   subtitle      String?
   pricePerNight Float
   capacity      Int      @default(2)
+  totalUnits    Int      @default(1)
   isAvailable   Boolean  @default(true)
   tags          String[]
   createdAt     DateTime @default(now())
@@ -77,6 +78,7 @@ model Booking {
   checkIn           DateTime
   checkOut          DateTime
   nights            Int
+  period            String?
   guestsCount       Int
   roomPricePerNight Float
   serviceFee        Float         @default(120.0)

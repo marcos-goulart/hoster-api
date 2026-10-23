@@ -7,6 +7,7 @@ export interface CreateBookingDTO {
   roomId: string;
   checkIn: string;
   checkOut: string;
+  period?: string;
   totalPrice: number;
   guestName: string;
   guestCpf: string;
@@ -28,8 +29,14 @@ export class BookingService {
       },
     });
 
-    const checkInDate = new Date(data.checkIn);
-    const checkOutDate = new Date(data.checkOut);
+    // Trata parsing de datas mantendo UTC limpo caso a string seja YYYY-MM-DD
+    const checkInDate = data.checkIn.includes("T")
+      ? new Date(data.checkIn)
+      : new Date(`${data.checkIn}T00:00:00.000Z`);
+
+    const checkOutDate = data.checkOut.includes("T")
+      ? new Date(data.checkOut)
+      : new Date(`${data.checkOut}T00:00:00.000Z`);
 
     const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
     const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
@@ -62,6 +69,7 @@ export class BookingService {
           roomId: data.roomId,
           checkIn: checkInDate,
           checkOut: checkOutDate,
+          period: data.period || null,
           nights: nights,
           guestsCount: data.guestsCount || 1,
           roomPricePerNight:

@@ -11,6 +11,8 @@ import {
   AuthenticatedRequest,
 } from "./middlewares/authMiddleware";
 
+process.env.NODE_ENV = process.env.NODE_ENV || "development";
+
 const suggestionController = new SuggestionController();
 const app = express();
 

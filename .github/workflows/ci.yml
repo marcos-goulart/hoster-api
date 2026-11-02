@@ -32,7 +32,4 @@ jobs:
       - name: Executar Suíte de Testes (Vitest)
         env:
           NODE_ENV: test
-          FIREBASE_PROJECT_ID: test-project-id
-          FIREBASE_CLIENT_EMAIL: test@test-project-id.iam.gserviceaccount.com
-          FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...\n-----END PRIVATE KEY-----\n"
         run: npm run test

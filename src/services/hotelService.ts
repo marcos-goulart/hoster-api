@@ -6,6 +6,8 @@ export interface HotelSearchQuery {
   maxPrice?: number;
   guests?: number;
   amenities?: string[];
+  checkIn?: string;
+  checkOut?: string;
 }
 
 export interface CreateQuestionDTO {
@@ -35,9 +37,115 @@ export class HotelService {
     });
   }
 
+  /**
+   * Faz o parse seguro das datas de check-in e check-out da busca.
+   * Retorna os objetos Date apenas se ambos forem válidos e checkIn < checkOut.
+   */
+  private parseSearchDates(
+    checkIn?: string,
+    checkOut?: string,
+  ): {
+    searchCheckIn?: Date;
+    searchCheckOut?: Date;
+  } {
+    if (!checkIn || !checkOut) return {};
+
+    const checkInStr = String(checkIn).trim();
+    const checkOutStr = String(checkOut).trim();
+
+    if (!checkInStr || !checkOutStr) return {};
+
+    const dIn = checkInStr.includes("T")
+      ? new Date(checkInStr)
+      : new Date(`${checkInStr}T00:00:00.000Z`);
+
+    const dOut = checkOutStr.includes("T")
+      ? new Date(checkOutStr)
+      : new Date(`${checkOutStr}T00:00:00.000Z`);
+
+    if (isNaN(dIn.getTime()) || isNaN(dOut.getTime()) || dIn >= dOut) {
+      return {};
+    }
+
+    return { searchCheckIn: dIn, searchCheckOut: dOut };
+  }
+
+  /**
+   * Monta o include de quartos, trazendo reservas conflitantes caso datas tenham sido informadas.
+   * Conflito: checkIn < searchCheckOut AND checkOut > searchCheckIn
+   */
+  private buildRoomsInclude(searchCheckIn?: Date, searchCheckOut?: Date) {
+    return {
+      where: { isAvailable: true },
+      include:
+        searchCheckIn && searchCheckOut
+          ? {
+              bookings: {
+                where: {
+                  status: {
+                    in: ["CONFIRMED", "PENDING"] as ("CONFIRMED" | "PENDING")[],
+                  },
+                  checkIn: { lt: searchCheckOut },
+                  checkOut: { gt: searchCheckIn },
+                },
+                select: { id: true },
+              },
+            }
+          : undefined,
+      orderBy: { pricePerNight: "asc" as const },
+    };
+  }
+
+  /**
+   * Filtra hotéis para manter apenas aqueles que possuem pelo menos 1 quarto disponível
+   * no período de datas selecionado (conflitos < totalUnits).
+   * Remove a propriedade 'bookings' do retorno para manter os objetos limpos.
+   */
+  private filterHotelsByAvailability(
+    hotels: any[],
+    searchCheckIn?: Date,
+    searchCheckOut?: Date,
+  ) {
+    if (!searchCheckIn || !searchCheckOut) {
+      return hotels;
+    }
+
+    return hotels
+      .map((hotel) => {
+        const availableRooms = (hotel.rooms || []).filter((room: any) => {
+          const conflictingCount = Array.isArray(room.bookings)
+            ? room.bookings.length
+            : 0;
+          const totalUnits =
+            typeof room.totalUnits === "number" && room.totalUnits > 0
+              ? room.totalUnits
+              : 1;
+
+          return conflictingCount < totalUnits;
+        });
+
+        const sanitizedRooms = availableRooms.map((room: any) => {
+          const { bookings, ...rest } = room;
+          return rest;
+        });
+
+        return {
+          ...hotel,
+          rooms: sanitizedRooms,
+        };
+      })
+      .filter((hotel) => hotel.rooms.length > 0);
+  }
+
   async listHotels(filters: HotelSearchQuery) {
-    const { city, minPrice, maxPrice, guests, amenities } = filters;
+    const { city, minPrice, maxPrice, guests, amenities, checkIn, checkOut } =
+      filters;
     const searchTerm = city?.trim().toLowerCase() || "";
+    const { searchCheckIn, searchCheckOut } = this.parseSearchDates(
+      checkIn,
+      checkOut,
+    );
+    const roomsInclude = this.buildRoomsInclude(searchCheckIn, searchCheckOut);
 
     // CASO 1: Busca geral (Sem termo de cidade)
     if (!searchTerm) {
@@ -47,16 +155,19 @@ export class HotelService {
       const hotels = await prisma.hotel.findMany({
         where: whereClause,
         include: {
-          rooms: {
-            where: { isAvailable: true },
-            orderBy: { pricePerNight: "asc" },
-          },
+          rooms: roomsInclude,
         },
         orderBy: [{ ratingScore: "desc" }],
       });
 
+      const availableHotels = this.filterHotelsByAvailability(
+        hotels,
+        searchCheckIn,
+        searchCheckOut,
+      );
+
       return {
-        hotels: this.formatHotelList(hotels),
+        hotels: this.formatHotelList(availableHotels),
         searchScope: "all",
         searchTerm: "",
       };
@@ -89,13 +200,16 @@ export class HotelService {
     let hotels = await prisma.hotel.findMany({
       where: whereClause,
       include: {
-        rooms: {
-          where: { isAvailable: true },
-          orderBy: { pricePerNight: "asc" },
-        },
+        rooms: roomsInclude,
       },
       orderBy: [{ ratingScore: "desc" }],
     });
+
+    hotels = this.filterHotelsByAvailability(
+      hotels,
+      searchCheckIn,
+      searchCheckOut,
+    );
 
     // PASSO 3: Ordena colocando a cidade pesquisada no topo
     if (hotels.length > 0) {
@@ -119,13 +233,16 @@ export class HotelService {
     hotels = await prisma.hotel.findMany({
       take: 6,
       include: {
-        rooms: {
-          where: { isAvailable: true },
-          orderBy: { pricePerNight: "asc" },
-        },
+        rooms: roomsInclude,
       },
       orderBy: [{ ratingScore: "desc" }],
     });
+
+    hotels = this.filterHotelsByAvailability(
+      hotels,
+      searchCheckIn,
+      searchCheckOut,
+    );
 
     return {
       hotels: this.formatHotelList(hotels),

@@ -1,0 +1,91 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BookingService = void 0;
+const prisma_1 = require("../config/prisma");
+class BookingService {
+    async createBooking(data) {
+        // 1. Sincroniza usuário
+        await prisma_1.prisma.user.upsert({
+            where: { id: data.userId },
+            update: { email: data.userEmail || "" },
+            create: {
+                id: data.userId,
+                firebaseUid: data.userId,
+                name: data.guestName || "Hóspede",
+                email: data.userEmail || "",
+            },
+        });
+        // Trata parsing de datas mantendo UTC limpo caso a string seja YYYY-MM-DD
+        const checkInDate = data.checkIn.includes("T")
+            ? new Date(data.checkIn)
+            : new Date(`${data.checkIn}T00:00:00.000Z`);
+        const checkOutDate = data.checkOut.includes("T")
+            ? new Date(data.checkOut)
+            : new Date(`${data.checkOut}T00:00:00.000Z`);
+        const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
+        const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        const roomPricePerNight = (data.totalPrice - 120.0) / nights;
+        // 2. Transação isolada para prevenir conflito de datas/overbooking
+        return await prisma_1.prisma.$transaction(async (tx) => {
+            const existingBooking = await tx.booking.findFirst({
+                where: {
+                    roomId: data.roomId,
+                    status: { in: ["CONFIRMED", "PENDING"] },
+                    OR: [
+                        {
+                            checkIn: { lte: checkOutDate },
+                            checkOut: { gte: checkInDate },
+                        },
+                    ],
+                },
+            });
+            if (existingBooking) {
+                throw new Error("O quarto selecionado já possui reserva confirmada para este período.");
+            }
+            return await tx.booking.create({
+                data: {
+                    userId: data.userId,
+                    roomId: data.roomId,
+                    checkIn: checkInDate,
+                    checkOut: checkOutDate,
+                    period: data.period || null,
+                    nights: nights,
+                    guestsCount: data.guestsCount || 1,
+                    roomPricePerNight: roomPricePerNight > 0 ? roomPricePerNight : data.totalPrice,
+                    totalPrice: data.totalPrice,
+                    guestFullName: data.guestName,
+                    guestEmail: data.userEmail || "",
+                    guestDocument: data.guestCpf,
+                    guestPhone: data.guestPhone,
+                    status: "CONFIRMED",
+                },
+                include: {
+                    room: {
+                        include: {
+                            hotel: true, // Inclui o hotel através da relação com Room
+                        },
+                    },
+                },
+            });
+        });
+    }
+    async getUserBookings(userId) {
+        const bookings = await prisma_1.prisma.booking.findMany({
+            where: { userId },
+            include: {
+                room: {
+                    include: {
+                        hotel: true, // Inclui o hotel associado ao quarto reservado
+                    },
+                },
+            },
+            orderBy: { checkIn: "desc" },
+        });
+        // Mapeia para entregar o objeto no formato esperado pelo frontend
+        return bookings.map((booking) => ({
+            ...booking,
+            hotel: booking.room.hotel,
+        }));
+    }
+}
+exports.BookingService = BookingService;

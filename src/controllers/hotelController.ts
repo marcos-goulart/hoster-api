@@ -8,7 +8,8 @@ const hotelService = new HotelService();
 export class HotelController {
   async getHotels(req: Request, res: Response): Promise<void> {
     try {
-      const { city, minPrice, maxPrice, guests, amenities } = req.query;
+      const { city, minPrice, maxPrice, guests, amenities, checkIn, checkOut } =
+        req.query;
 
       const parsedAmenities = amenities
         ? Array.isArray(amenities)
@@ -22,6 +23,8 @@ export class HotelController {
         maxPrice: maxPrice ? Number(maxPrice) : undefined,
         guests: guests ? Number(guests) : undefined,
         amenities: parsedAmenities,
+        checkIn: checkIn as string,
+        checkOut: checkOut as string,
       });
 
       res.status(200).json({

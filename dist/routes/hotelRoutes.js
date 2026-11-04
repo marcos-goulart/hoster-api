@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const hotelController_1 = require("../controllers/hotelController");
+const authMiddleware_1 = require("../middlewares/authMiddleware");
+const router = (0, express_1.Router)();
+const hotelController = new hotelController_1.HotelController();
+router.get("/", (req, res) => hotelController.getHotels(req, res));
+router.get("/:id", (req, res) => hotelController.getHotelById(req, res));
+router.post("/:id/questions", authMiddleware_1.authMiddleware, (req, res) => hotelController.addQuestion(req, res));
+exports.default = router;

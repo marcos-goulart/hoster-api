@@ -27,7 +27,7 @@
 
 ## 📌 Visão Geral
 
-O **`hoster-api`** é o motor backend da plataforma **Hoster**, responsável por centralizar toda a inteligência de negócios, integridade transacional e comunicação com o ecossistema frontend ([`hotel-react-vite`](../hotel-react-vite)).
+O **`hoster-api`** é o motor backend da plataforma **Hoster**, responsável por centralizar toda a inteligência de negócios, integridade transacional e comunicação com o ecossistema frontend ([`Hoster`](https://github.com/marcos-goulart/Hoster)).
 
 Construído sob uma arquitetura desacoplada em camadas, o projeto resolve os desafios mais críticos da hotelaria moderna:
 - **Reserva concorrente e prevenção de overbooking**: garantia de consistência de estoque de quartos através de transações atômicas no banco de dados.
@@ -43,7 +43,7 @@ A aplicação implementa o padrão arquitetural **Layered Architecture (Controll
 
 ```mermaid
 flowchart TD
-    Client["💻 Frontend Client (hotel-react-vite)\nReact 18 + Vite + Axios"] -->|"HTTP / HTTPS Requests\n(Bearer Firebase JWT)"| App["🛡️ Express 5 Application (app.ts)"]
+    Client["💻 Frontend Client (hoster)\nReact 18 + Vite + Axios"] -->|"HTTP / HTTPS Requests\n(Bearer Firebase JWT)"| App["🛡️ Express 5 Application (app.ts)"]
 
     subgraph Security_Layer ["Camada de Segurança e Middlewares"]
         Helmet["🛡️ Helmet Security Headers"]
@@ -343,7 +343,7 @@ npm run test:watch
 
 ## 🔄 Integração com o Frontend
 
-Esta API atende diretamente ao repositório frontend **[`hotel-react-vite`](../hotel-react-vite)**:
+Esta API atende diretamente ao repositório frontend **[`hoster`](https://github.com/marcos-goulart/Hoster)**:
 - **Busca Dinâmica**: os parâmetros `checkIn` e `checkOut` selecionados no `CalendarPicker` do frontend são consumidos pelo endpoint `GET /api/hotels` via hook `useHotelSearch.ts`.
 - **Sessão Persistente**: os tokens emitidos pelo Firebase Authentication na camada web são transmitidos no cabeçalho `Authorization: Bearer <token>` em todas as operações restritas.
 - **Detecção de Conflitos**: erros de sobreposição disparados na reserva são serializados e refletidos na UI informando ao usuário a indisponibilidade imediata do quarto.

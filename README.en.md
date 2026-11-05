@@ -240,7 +240,7 @@ erDiagram
 
 ### 1. Clone the Repository & Install Dependencies
 ```bash
-git clone https://github.com/your-username/hoster-api.git
+git clone https://github.com/marcos-goulart/hoster-api.git
 cd hoster-api
 npm install
 ```

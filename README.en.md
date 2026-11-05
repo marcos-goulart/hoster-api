@@ -27,7 +27,7 @@
 
 ## 📌 Overview
 
-**`hoster-api`** is the backend engine powering the **Hoster** hospitality platform. It centralizes all core business logic, transactional integrity, and communication with the frontend client ([`hotel-react-vite`](../hotel-react-vite)).
+**`hoster-api`** is the backend engine powering the **Hoster** hospitality platform. It centralizes all core business logic, transactional integrity, and communication with the frontend client ([`Hoster`](https://github.com/marcos-goulart/Hoster)).
 
 Architected following decoupled, enterprise-grade layered design patterns, the project solves critical hospitality platform challenges:
 - **Concurrent Booking & Overbooking Prevention**: guarantees strict room inventory consistency via atomic database transactions.
@@ -43,7 +43,7 @@ The application follows the **Layered Architecture (Controller-Service-Repositor
 
 ```mermaid
 flowchart TD
-    Client["💻 Frontend Client (hotel-react-vite)\nReact 18 + Vite + Axios"] -->|"HTTP / HTTPS Requests\n(Bearer Firebase JWT)"| App["🛡️ Express 5 Application (app.ts)"]
+    Client["💻 Frontend Client (Hoster)\nReact 18 + Vite + Axios"] -->|"HTTP / HTTPS Requests\n(Bearer Firebase JWT)"| App["🛡️ Express 5 Application (app.ts)"]
 
     subgraph Security_Layer ["Security Layer & Middlewares"]
         Helmet["🛡️ Helmet Security Headers"]
@@ -343,7 +343,7 @@ npm run test:watch
 
 ## 🔄 Frontend Client Integration
 
-This API directly serves the frontend repository **[`hotel-react-vite`](../hotel-react-vite)**:
+This API directly serves the frontend repository **[`Hoster`](https://github.com/marcos-goulart/Hoster)**:
 - **Dynamic Period Search**: `checkIn` and `checkOut` query parameters chosen in the frontend `CalendarPicker` are forwarded to `GET /api/hotels` via the `useHotelSearch.ts` hook.
 - **Persistent Sessions**: Firebase authentication tokens generated in the web app are transmitted via `Authorization: Bearer <token>` on all restricted calls.
 - **Conflict Handling**: transactional overbooking errors are serialized and displayed in the UI, notifying users immediately of room unavailability.

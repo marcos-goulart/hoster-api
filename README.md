@@ -104,7 +104,7 @@ Se o número de conflitos atingir a capacidade total de unidades do quarto (`tot
 
 ### 2. Filtro Dinâmico de Disponibilidade por Datas
 No endpoint `GET /api/hotels`, quando os parâmetros `checkIn` e `checkOut` são fornecidos, a API realiza uma busca relacional trazendo apenas acomodações que possuem ao menos um quarto disponível:
-$$\text{conflitos\_ativos} < \text{room.totalUnits}$$
+$$\text{conflitosAtivos} < \text{room.totalUnits}$$
 Quartos com 100% de ocupação no intervalo informado são filtrados antes da entrega ao frontend.
 
 ### 3. Ranking Geográfico e Fallback Inteligente

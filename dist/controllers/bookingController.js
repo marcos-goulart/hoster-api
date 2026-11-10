@@ -22,6 +22,20 @@ class BookingController {
             });
         }
     }
+    async confirm(req, res) {
+        try {
+            const userId = req.user.uid;
+            const { id } = req.params;
+            const booking = await bookingService.confirmBooking(String(id), userId);
+            res.status(200).json({ success: true, data: booking });
+        }
+        catch (error) {
+            res.status(400).json({
+                success: false,
+                error: error.message || "Erro ao confirmar pagamento da reserva.",
+            });
+        }
+    }
     async listMyBookings(req, res) {
         try {
             const userId = req.user.uid;

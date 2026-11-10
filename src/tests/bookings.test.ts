@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import app from "../app";
 
-describe("Bookings API Routes (Integration & Security", () => {
+describe("Bookings API Routes (Integration & Security)", () => {
   it("POST /api/bookings - deve rejeitar a criação de reserva sem token de autenticação", async () => {
     const response = await request(app).post("/api/bookings").send({
       hotelId: "some-id",
@@ -18,7 +18,15 @@ describe("Bookings API Routes (Integration & Security", () => {
     expect(response.status).toBe(401);
   });
 
-  it("GET /api/booking/my-bookings - deve bloquear o acesso a histórico sem autorização", async () => {
+  it("PATCH /api/bookings/:id/confirm - deve rejeitar confirmação sem token de autenticação", async () => {
+    const response = await request(app)
+      .patch("/api/bookings/some-booking-id/confirm")
+      .send();
+
+    expect(response.status).toBe(401);
+  });
+
+  it("GET /api/bookings/my-bookings - deve bloquear o acesso a histórico sem autorização", async () => {
     const response = await request(app).get("/api/bookings/my-bookings");
 
     expect(response.status).toBe(401);

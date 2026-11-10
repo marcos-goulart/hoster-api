@@ -25,8 +25,30 @@ class BookingService {
         const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
         const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
         const roomPricePerNight = (data.totalPrice - 120.0) / nights;
-        // 2. Transação isolada para prevenir conflito de datas/overbooking
+        // 2. Transação isolada para prevenir conflito de datas/overbooking e garantir idempotência
         return await prisma_1.prisma.$transaction(async (tx) => {
+            // 2.1 Verificação de Idempotência: se o mesmo usuário já submeteu reserva para este quarto e período
+            const existingUserBooking = await tx.booking.findFirst({
+                where: {
+                    userId: data.userId,
+                    roomId: data.roomId,
+                    checkIn: checkInDate,
+                    checkOut: checkOutDate,
+                    status: { in: ["CONFIRMED", "PENDING"] },
+                },
+                include: {
+                    room: {
+                        include: {
+                            hotel: true,
+                        },
+                    },
+                },
+            });
+            if (existingUserBooking) {
+                // Retorna a reserva existente de forma idempotente sem duplicar o registro
+                return existingUserBooking;
+            }
+            // 2.2 Verificação de Conflito de Overbooking com outros hóspedes
             const existingBooking = await tx.booking.findFirst({
                 where: {
                     roomId: data.roomId,
@@ -69,6 +91,46 @@ class BookingService {
             });
         });
     }
+    async confirmBooking(bookingId, userId) {
+        const booking = await prisma_1.prisma.booking.findFirst({
+            where: {
+                id: bookingId,
+                userId,
+            },
+            include: {
+                room: {
+                    include: {
+                        hotel: true,
+                    },
+                },
+            },
+        });
+        if (!booking) {
+            throw new Error("Reserva não encontrada ou não pertence ao usuário.");
+        }
+        if (booking.status === "CONFIRMED") {
+            // Idempotente: se já estiver confirmada, retorna diretamente
+            return {
+                ...booking,
+                hotel: booking.room.hotel,
+            };
+        }
+        const updated = await prisma_1.prisma.booking.update({
+            where: { id: bookingId },
+            data: { status: "CONFIRMED" },
+            include: {
+                room: {
+                    include: {
+                        hotel: true,
+                    },
+                },
+            },
+        });
+        return {
+            ...updated,
+            hotel: updated.room.hotel,
+        };
+    }
     async getUserBookings(userId) {
         const bookings = await prisma_1.prisma.booking.findMany({
             where: { userId },
@@ -81,8 +143,21 @@ class BookingService {
             },
             orderBy: { checkIn: "desc" },
         });
-        // Mapeia para entregar o objeto no formato esperado pelo frontend
-        return bookings.map((booking) => ({
+        // Mapeia e deduplica defensivamente por ID e por acomodação/datas
+        const seenIds = new Set();
+        const seenTrips = new Set();
+        const uniqueBookings = [];
+        for (const booking of bookings) {
+            if (seenIds.has(booking.id))
+                continue;
+            seenIds.add(booking.id);
+            const tripKey = `${booking.roomId}_${booking.checkIn.toISOString()}_${booking.checkOut.toISOString()}`;
+            if (seenTrips.has(tripKey))
+                continue;
+            seenTrips.add(tripKey);
+            uniqueBookings.push(booking);
+        }
+        return uniqueBookings.map((booking) => ({
             ...booking,
             hotel: booking.room.hotel,
         }));

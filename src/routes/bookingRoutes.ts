@@ -13,6 +13,9 @@ router.use(authMiddleware as any);
 router.post("/", (req, res) =>
   bookingController.create(req as AuthenticatedRequest, res),
 );
+router.patch("/:id/confirm", (req, res) =>
+  bookingController.confirm(req as AuthenticatedRequest, res),
+);
 router.get("/my-bookings", (req, res) =>
   bookingController.listMyBookings(req as AuthenticatedRequest, res),
 );

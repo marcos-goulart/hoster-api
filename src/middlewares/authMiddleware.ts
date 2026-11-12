@@ -29,6 +29,20 @@ export async function authMiddleware(
 
   try {
     const decodedToken = await firebaseAuth.verifyIdToken(token);
+
+    // Validação de e-mail verificado para provedor de senha
+    if (
+      decodedToken.firebase.sign_in_provider === "password" &&
+      !decodedToken.email_verified
+    ) {
+      res.status(403).json({
+        success: false,
+        error:
+          "Acesso não autorizado. A conta de e-mail ainda não foi verificada.",
+      });
+      return;
+    }
+
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,

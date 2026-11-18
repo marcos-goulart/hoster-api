@@ -8,5 +8,6 @@ const bookingController = new bookingController_1.BookingController();
 router.use(authMiddleware_1.authMiddleware);
 router.post("/", (req, res) => bookingController.create(req, res));
 router.patch("/:id/confirm", (req, res) => bookingController.confirm(req, res));
+router.patch("/:id/cancel", (req, res) => bookingController.cancel(req, res));
 router.get("/my-bookings", (req, res) => bookingController.listMyBookings(req, res));
 exports.default = router;

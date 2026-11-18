@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { BookingStatus } from "@prisma/client";
 
 export interface HotelSearchQuery {
   city?: string;
@@ -82,9 +83,20 @@ export class HotelService {
           ? {
               bookings: {
                 where: {
-                  status: {
-                    in: ["CONFIRMED", "PENDING"] as ("CONFIRMED" | "PENDING")[],
-                  },
+                  OR: [
+                    { status: BookingStatus.CONFIRMED },
+                    {
+                      status: {
+                        in: [
+                          BookingStatus.PENDING_PAYMENT,
+                          BookingStatus.PENDING,
+                        ],
+                      },
+                      createdAt: {
+                        gte: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                      },
+                    },
+                  ],
                   checkIn: { lt: searchCheckOut },
                   checkOut: { gt: searchCheckIn },
                 },

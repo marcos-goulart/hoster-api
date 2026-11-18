@@ -16,6 +16,9 @@ router.post("/", (req, res) =>
 router.patch("/:id/confirm", (req, res) =>
   bookingController.confirm(req as AuthenticatedRequest, res),
 );
+router.patch("/:id/cancel", (req, res) =>
+  bookingController.cancel(req as AuthenticatedRequest, res),
+);
 router.get("/my-bookings", (req, res) =>
   bookingController.listMyBookings(req as AuthenticatedRequest, res),
 );

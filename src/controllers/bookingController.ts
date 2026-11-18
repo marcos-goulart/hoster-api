@@ -40,6 +40,21 @@ export class BookingController {
     }
   }
 
+  async cancel(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.uid;
+      const { id } = req.params;
+
+      const booking = await bookingService.cancelBooking(String(id), userId);
+      res.status(200).json({ success: true, data: booking });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message || "Erro ao cancelar reserva.",
+      });
+    }
+  }
+
   async listMyBookings(
     req: AuthenticatedRequest,
     res: Response,

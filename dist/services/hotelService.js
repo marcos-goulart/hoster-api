@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HotelService = void 0;
 const prisma_1 = require("../config/prisma");
+const client_1 = require("@prisma/client");
 class HotelService {
     /**
      * Método auxiliar para calcular e anexar o menor preço de quarto (diária)
@@ -51,9 +52,20 @@ class HotelService {
                 ? {
                     bookings: {
                         where: {
-                            status: {
-                                in: ["CONFIRMED", "PENDING"],
-                            },
+                            OR: [
+                                { status: client_1.BookingStatus.CONFIRMED },
+                                {
+                                    status: {
+                                        in: [
+                                            client_1.BookingStatus.PENDING_PAYMENT,
+                                            client_1.BookingStatus.PENDING,
+                                        ],
+                                    },
+                                    createdAt: {
+                                        gte: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                                    },
+                                },
+                            ],
                             checkIn: { lt: searchCheckOut },
                             checkOut: { gt: searchCheckIn },
                         },

@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from "vitest";
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../config/prisma";
@@ -10,13 +18,70 @@ describe("Bookings API Routes (Integration & Security)", () => {
   let hotelTestId: string;
   let roomTestId: string;
 
+  async function ensureTestFixtures() {
+    await prisma.user.upsert({
+      where: { id: user1Uid },
+      update: {},
+      create: {
+        id: user1Uid,
+        firebaseUid: user1Uid,
+        name: "Usuário 1",
+        email: "user1@teste.com",
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { id: user2Uid },
+      update: {},
+      create: {
+        id: user2Uid,
+        firebaseUid: user2Uid,
+        name: "Usuário 2",
+        email: "user2@teste.com",
+      },
+    });
+
+    const existingRoom = roomTestId
+      ? await prisma.room.findUnique({ where: { id: roomTestId } })
+      : null;
+
+    if (!existingRoom) {
+      const hotel = await prisma.hotel.create({
+        data: {
+          name: "Hotel Teste Bookings",
+          address: "Rua dos Testes, 100",
+          city: "São Paulo",
+          state: "SP",
+          photos: [
+            "https://images.unsplash.com/photo-1566073771259-6a8506099945",
+          ],
+          amenities: ["Wi-Fi", "Piscina"],
+          rooms: {
+            create: [
+              {
+                title: "Quarto Teste Unitário",
+                pricePerNight: 200,
+                capacity: 2,
+                totalUnits: 1,
+              },
+            ],
+          },
+        },
+        include: {
+          rooms: true,
+        },
+      });
+
+      hotelTestId = hotel.id;
+      roomTestId = hotel.rooms[0].id;
+    }
+  }
+
   beforeAll(async () => {
-    // Limpa eventuais resíduos de execuções anteriores interrompidas
     await prisma.booking.deleteMany({
       where: { userId: { in: [user1Uid, user2Uid] } },
     });
 
-    // Mock do Firebase Auth
     vi.spyOn(firebaseAuth, "verifyIdToken").mockImplementation(
       async (token: string) => {
         if (token === "token-user-1") {
@@ -41,62 +106,14 @@ describe("Bookings API Routes (Integration & Security)", () => {
       },
     );
 
-    // Cria usuários de teste
-    await prisma.user.upsert({
-      where: { id: user1Uid },
-      update: {},
-      create: {
-        id: user1Uid,
-        firebaseUid: user1Uid,
-        name: "Usuário 1",
-        email: "user1@teste.com",
-      },
-    });
+    await ensureTestFixtures();
+  });
 
-    await prisma.user.upsert({
-      where: { id: user2Uid },
-      update: {},
-      create: {
-        id: user2Uid,
-        firebaseUid: user2Uid,
-        name: "Usuário 2",
-        email: "user2@teste.com",
-      },
-    });
-
-    // Cria hotel e quarto de teste com totalUnits = 1
-    const hotel = await prisma.hotel.create({
-      data: {
-        name: "Hotel Teste Bookings",
-        address: "Rua dos Testes, 100",
-        city: "São Paulo",
-        state: "SP",
-        photos: [
-          "https://images.unsplash.com/photo-1566073771259-6a8506099945",
-        ],
-        amenities: ["Wi-Fi", "Piscina"],
-        rooms: {
-          create: [
-            {
-              title: "Quarto Teste Unitário",
-              pricePerNight: 200,
-              capacity: 2,
-              totalUnits: 1, // Apenas 1 unidade para testar concorrência e liberação de estoque
-            },
-          ],
-        },
-      },
-      include: {
-        rooms: true,
-      },
-    });
-
-    hotelTestId = hotel.id;
-    roomTestId = hotel.rooms[0].id;
+  beforeEach(async () => {
+    await ensureTestFixtures();
   });
 
   afterAll(async () => {
-    // Limpeza completa respeitando todas as chaves estrangeiras (roomId e userId)
     await prisma.booking.deleteMany({
       where: {
         OR: [
@@ -162,7 +179,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
     const checkIn = new Date("2026-12-01T00:00:00.000Z");
     const checkOut = new Date("2026-12-05T00:00:00.000Z");
 
-    // Cria reserva inicial em PENDING_PAYMENT simulando criação há 3 horas (> 2h TTL)
     const expiredBooking = await prisma.booking.create({
       data: {
         userId: user1Uid,
@@ -174,7 +190,7 @@ describe("Bookings API Routes (Integration & Security)", () => {
         roomPricePerNight: 200,
         totalPrice: 920,
         status: "PENDING_PAYMENT",
-        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // Criada há 3 horas
+        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
         guestFullName: "Usuário 1",
         guestEmail: "user1@teste.com",
         guestDocument: "111.111.111-11",
@@ -182,7 +198,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
       },
     });
 
-    // Tentativa de pagamento da reserva expirada deve retornar 400
     const confirmResponse = await request(app)
       .patch(`/api/bookings/${expiredBooking.id}/confirm`)
       .set("Authorization", "Bearer token-user-1");
@@ -192,13 +207,11 @@ describe("Bookings API Routes (Integration & Security)", () => {
       "Prazo de pagamento de 2 horas expirado",
     );
 
-    // Verifica que o status no banco foi atualizado para CANCELLED
     const refreshedBooking = await prisma.booking.findUnique({
       where: { id: expiredBooking.id },
     });
     expect(refreshedBooking?.status).toBe("CANCELLED");
 
-    // Usuário 2 agora consegue reservar o mesmo quarto e período (estoque liberado)
     const newBookingResponse = await request(app)
       .post("/api/bookings")
       .set("Authorization", "Bearer token-user-2")
@@ -217,7 +230,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
     expect(newBookingResponse.body.success).toBe(true);
     expect(newBookingResponse.body.data.status).toBe("PENDING_PAYMENT");
 
-    // Limpa nova reserva criada
     await prisma.booking.deleteMany({
       where: { id: newBookingResponse.body.data.id },
     });
@@ -226,7 +238,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
 
   // 3. Cancelamento Manual (> 24h antes do check-in)
   it("PATCH /api/bookings/:id/cancel - deve permitir cancelamento com mais de 24h de antecedência", async () => {
-    // Check-in daqui a 5 dias (> 24h)
     const futureCheckIn = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
     const futureCheckOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -261,7 +272,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
 
   // 4. Bloqueio de Cancelamento (< 24h antes do check-in)
   it("PATCH /api/bookings/:id/cancel - deve bloquear cancelamento com menos de 24h para o check-in", async () => {
-    // Check-in daqui a 10 horas (< 24h)
     const soonCheckIn = new Date(Date.now() + 10 * 60 * 60 * 1000);
     const soonCheckOut = new Date(Date.now() + 34 * 60 * 60 * 1000);
 
@@ -303,7 +313,7 @@ describe("Bookings API Routes (Integration & Security)", () => {
 
     const booking = await prisma.booking.create({
       data: {
-        userId: user1Uid, // Pertence ao usuário 1
+        userId: user1Uid,
         roomId: roomTestId,
         checkIn: futureCheckIn,
         checkOut: futureCheckOut,
@@ -319,7 +329,6 @@ describe("Bookings API Routes (Integration & Security)", () => {
       },
     });
 
-    // Usuário 2 tenta cancelar
     const cancelResponse = await request(app)
       .patch(`/api/bookings/${booking.id}/cancel`)
       .set("Authorization", "Bearer token-user-2");

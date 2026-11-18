@@ -11,6 +11,11 @@ describe("Bookings API Routes (Integration & Security)", () => {
   let roomTestId: string;
 
   beforeAll(async () => {
+    // Limpa eventuais resíduos de execuções anteriores interrompidas
+    await prisma.booking.deleteMany({
+      where: { userId: { in: [user1Uid, user2Uid] } },
+    });
+
     // Mock do Firebase Auth
     vi.spyOn(firebaseAuth, "verifyIdToken").mockImplementation(
       async (token: string) => {
@@ -66,7 +71,9 @@ describe("Bookings API Routes (Integration & Security)", () => {
         address: "Rua dos Testes, 100",
         city: "São Paulo",
         state: "SP",
-        photos: ["https://images.unsplash.com/photo-1566073771259-6a8506099945"],
+        photos: [
+          "https://images.unsplash.com/photo-1566073771259-6a8506099945",
+        ],
         amenities: ["Wi-Fi", "Piscina"],
         rooms: {
           create: [
@@ -89,10 +96,24 @@ describe("Bookings API Routes (Integration & Security)", () => {
   });
 
   afterAll(async () => {
-    // Limpeza completa
-    await prisma.booking.deleteMany({ where: { roomId: roomTestId } });
-    await prisma.room.deleteMany({ where: { id: roomTestId } });
-    await prisma.hotel.deleteMany({ where: { id: hotelTestId } });
+    // Limpeza completa respeitando todas as chaves estrangeiras (roomId e userId)
+    await prisma.booking.deleteMany({
+      where: {
+        OR: [
+          ...(roomTestId ? [{ roomId: roomTestId }] : []),
+          { userId: { in: [user1Uid, user2Uid] } },
+        ],
+      },
+    });
+
+    if (roomTestId) {
+      await prisma.room.deleteMany({ where: { id: roomTestId } });
+    }
+
+    if (hotelTestId) {
+      await prisma.hotel.deleteMany({ where: { id: hotelTestId } });
+    }
+
     await prisma.user.deleteMany({
       where: { id: { in: [user1Uid, user2Uid] } },
     });
@@ -167,7 +188,9 @@ describe("Bookings API Routes (Integration & Security)", () => {
       .set("Authorization", "Bearer token-user-1");
 
     expect(confirmResponse.status).toBe(400);
-    expect(confirmResponse.body.error).toContain("Prazo de pagamento de 2 horas expirado");
+    expect(confirmResponse.body.error).toContain(
+      "Prazo de pagamento de 2 horas expirado",
+    );
 
     // Verifica que o status no banco foi atualizado para CANCELLED
     const refreshedBooking = await prisma.booking.findUnique({
@@ -195,7 +218,9 @@ describe("Bookings API Routes (Integration & Security)", () => {
     expect(newBookingResponse.body.data.status).toBe("PENDING_PAYMENT");
 
     // Limpa nova reserva criada
-    await prisma.booking.deleteMany({ where: { id: newBookingResponse.body.data.id } });
+    await prisma.booking.deleteMany({
+      where: { id: newBookingResponse.body.data.id },
+    });
     await prisma.booking.deleteMany({ where: { id: expiredBooking.id } });
   });
 
@@ -264,7 +289,9 @@ describe("Bookings API Routes (Integration & Security)", () => {
 
     expect(cancelResponse.status).toBe(400);
     expect(cancelResponse.body.success).toBe(false);
-    expect(cancelResponse.body.error).toContain("pelo menos 24 horas de antecedência");
+    expect(cancelResponse.body.error).toContain(
+      "pelo menos 24 horas de antecedência",
+    );
 
     await prisma.booking.deleteMany({ where: { id: booking.id } });
   });

@@ -83,7 +83,7 @@ model Booking {
   roomPricePerNight Float
   serviceFee        Float         @default(120.0)
   totalPrice        Float
-  status            BookingStatus @default(CONFIRMED)
+  status            BookingStatus @default(PENDING_PAYMENT)
 
   guestFullName String
   guestEmail    String
@@ -101,7 +101,9 @@ model Booking {
 
 enum BookingStatus {
   PENDING
+  PENDING_PAYMENT
   CONFIRMED
+  COMPLETED
   CANCELLED
 }
 

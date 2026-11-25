@@ -9,6 +9,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const hotelRoutes_1 = __importDefault(require("./routes/hotelRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
+const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 const errorHandler_1 = require("./middlewares/errorHandler");
 const suggestionController_1 = require("./controllers/suggestionController");
 const authMiddleware_1 = require("./middlewares/authMiddleware");
@@ -69,6 +70,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/hotels", hotelRoutes_1.default);
 app.use("/api/user", userRoutes_1.default);
 app.use("/api/bookings", bookingRoutes_1.default);
+app.use("/api/notifications", notificationRoutes_1.default);
 // Rotas Auxiliares e de Autenticação
 app.get("/api/searchSuggestions", (req, res) => suggestionController.getSuggestions(req, res));
 app.get("/api/auth/me", authMiddleware_1.authMiddleware, (req, res) => {

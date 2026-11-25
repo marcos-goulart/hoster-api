@@ -4,6 +4,7 @@ import helmet from "helmet";
 import hotelRoutes from "./routes/hotelRoutes";
 import userRoutes from "./routes/userRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 import { errorHandler } from "./middlewares/errorHandler";
 import { SuggestionController } from "./controllers/suggestionController";
 import {
@@ -82,6 +83,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Rotas Auxiliares e de Autenticação
 app.get("/api/searchSuggestions", (req, res) =>

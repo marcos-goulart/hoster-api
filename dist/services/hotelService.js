@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HotelService = void 0;
 const prisma_1 = require("../config/prisma");
+const notificationService_1 = require("./notificationService");
+const notificationService = new notificationService_1.NotificationService();
 const client_1 = require("@prisma/client");
 class HotelService {
     /**
@@ -266,6 +268,40 @@ class HotelService {
                 },
             },
         });
+    }
+    async answerQuestion(questionId, answer) {
+        const question = await prisma_1.prisma.hotelQuestion.findUnique({
+            where: { id: questionId },
+            include: { hotel: true },
+        });
+        if (!question) {
+            throw new Error("Dúvida não encontrada.");
+        }
+        const updated = await prisma_1.prisma.hotelQuestion.update({
+            where: { id: questionId },
+            data: { answer },
+            include: {
+                hotel: true,
+            },
+        });
+        try {
+            await notificationService.createUserNotification({
+                userId: question.userId,
+                type: "QUESTION_ANSWERED",
+                title: "Sua dúvida foi respondida!",
+                message: `O anfitrião de ${question.hotel.name} respondeu à sua dúvida.`,
+                actionUrl: `/hotel/${question.hotelId}`,
+                metadata: {
+                    hotelId: question.hotelId,
+                    questionId: question.id,
+                    answer,
+                },
+            });
+        }
+        catch (err) {
+            console.warn("⚠️ Aviso ao disparar notificação de resposta à dúvida:", err);
+        }
+        return updated;
     }
 }
 exports.HotelService = HotelService;

@@ -15,12 +15,15 @@ model User {
   avatar      String?
   phone       String?
   document    String?
+  role        UserRole @default(GUEST)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   bookings  Booking[]
   favorites Favorite[]
   questions HotelQuestion[] // Relacionamento com as perguntas enviadas
+  notifications Notification[]
+  notificationReceipts GlobalNotificationReceipt[]
 
   @@map("users")
 }
@@ -154,3 +157,60 @@ model HotelQuestion {
   @@index([userId])
   @@map("hotel_questions")
 }
+
+enum UserRole {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  CHECKIN_REMINDER
+  QUESTION_ANSWERED
+  PROMOTION
+  SYSTEM_ANNOUNCEMENT
+}
+
+// 8. Notificações do Sistema e do Usuário
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String?
+  isGlobal  Boolean          @default(false)
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  actionUrl String?
+  metadata  Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user     User?                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receipts GlobalNotificationReceipt[]
+
+  @@index([userId])
+  @@index([isGlobal])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// 9. Recibos de Notificações Globais por Usuário (leitura e exclusão individual de broadcast)
+model GlobalNotificationReceipt {
+  id             String   @id @default(uuid())
+  userId         String
+  notificationId String
+  isRead         Boolean  @default(false)
+  isDeleted      Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, notificationId])
+  @@index([userId])
+  @@index([notificationId])
+  @@map("global_notification_receipts")
+}
+

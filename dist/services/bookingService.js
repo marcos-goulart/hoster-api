@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingService = exports.MIN_CANCELLATION_NOTICE_MS = exports.PAYMENT_EXPIRATION_MS = void 0;
 const prisma_1 = require("../config/prisma");
+const notificationService_1 = require("./notificationService");
+const notificationService = new notificationService_1.NotificationService();
 exports.PAYMENT_EXPIRATION_MS = 2 * 60 * 60 * 1000; // 2 horas (TTL)
 exports.MIN_CANCELLATION_NOTICE_MS = 24 * 60 * 60 * 1000; // 24 horas
 class BookingService {
@@ -109,11 +111,30 @@ class BookingService {
                     },
                 },
             });
-            return {
+            const result = {
                 ...created,
                 hotel: created.room.hotel,
                 guests: created.guestsCount,
             };
+            // Gatilho de notificação BOOKING_CREATED
+            try {
+                await notificationService.createUserNotification({
+                    userId: data.userId,
+                    type: "BOOKING_CREATED",
+                    title: "Reserva criada com sucesso!",
+                    message: `Sua pré-reserva no ${created.room.hotel?.name || "hotel"} foi realizada. Conclua o pagamento em até 2 horas para garantir sua acomodação.`,
+                    actionUrl: `/pagamento/${created.id}`,
+                    metadata: {
+                        bookingId: created.id,
+                        hotelName: created.room.hotel?.name,
+                        totalPrice: created.totalPrice,
+                    },
+                });
+            }
+            catch (err) {
+                console.warn("⚠️ Aviso ao disparar notificação de criação de reserva:", err);
+            }
+            return result;
         });
     }
     async confirmBooking(bookingId, userId) {
@@ -167,6 +188,23 @@ class BookingService {
                 },
             },
         });
+        // Gatilho de notificação BOOKING_CONFIRMED
+        try {
+            await notificationService.createUserNotification({
+                userId,
+                type: "BOOKING_CONFIRMED",
+                title: "Pagamento confirmado!",
+                message: `O pagamento da sua reserva no ${updated.room.hotel?.name || "hotel"} foi aprovado com sucesso. Tenha uma excelente viagem!`,
+                actionUrl: "/minhas-viagens",
+                metadata: {
+                    bookingId: updated.id,
+                    hotelName: updated.room.hotel?.name,
+                },
+            });
+        }
+        catch (err) {
+            console.warn("⚠️ Aviso ao disparar notificação de confirmação de reserva:", err);
+        }
         return {
             ...updated,
             hotel: updated.room.hotel,
@@ -224,6 +262,23 @@ class BookingService {
                 },
             },
         });
+        // Gatilho de notificação BOOKING_CANCELLED
+        try {
+            await notificationService.createUserNotification({
+                userId,
+                type: "BOOKING_CANCELLED",
+                title: "Reserva cancelada",
+                message: `Sua reserva no ${updated.room.hotel?.name || "hotel"} foi cancelada com sucesso. As datas foram liberadas.`,
+                actionUrl: "/minhas-viagens",
+                metadata: {
+                    bookingId: updated.id,
+                    hotelName: updated.room.hotel?.name,
+                },
+            });
+        }
+        catch (err) {
+            console.warn("⚠️ Aviso ao disparar notificação de cancelamento de reserva:", err);
+        }
         return {
             ...updated,
             hotel: updated.room.hotel,

@@ -1475,6 +1475,33 @@ async function main() {
     console.log(`  ✓ [${createdHotel.city}/${createdHotel.state}] ${createdHotel.name} (${createdHotel.rooms.length} quartos, ${createdHotel.reviews.length} avaliações)`);
   }
 
+  // Notificação global de boas-vindas/promoção
+  const existingWelcomeNotification = await prisma.notification.findFirst({
+    where: {
+      isGlobal: true,
+      type: "PROMOTION",
+      title: "Bem-vindo à Hoster! 15% OFF na sua primeira reserva",
+    },
+  });
+
+  if (!existingWelcomeNotification) {
+    await prisma.notification.create({
+      data: {
+        isGlobal: true,
+        type: "PROMOTION",
+        title: "Bem-vindo à Hoster! 15% OFF na sua primeira reserva",
+        message:
+          "Aproveite até 15% de desconto nas melhores pousadas e resorts do Brasil utilizando o cupom BEMVINDO15.",
+        actionUrl: "/#promocoes",
+        metadata: {
+          couponCode: "BEMVINDO15",
+          discountPercent: 15,
+        },
+      },
+    });
+    console.log("  ✓ Notificação global de boas-vindas/promoção cadastrada com sucesso!");
+  }
+
   console.log("\n========================================");
   console.log(`🎉 Seeding concluído com sucesso no PostgreSQL!`);
   console.log(`📊 Totais cadastrados:`);
